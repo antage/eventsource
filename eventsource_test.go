@@ -1,7 +1,6 @@
-package eventsource_test
+package eventsource
 
 import (
-	eventsource "."
 	"io"
 	"net"
 	"net/http/httptest"
@@ -11,14 +10,14 @@ import (
 )
 
 type testEnv struct {
-	eventSource eventsource.EventSource
+	eventSource EventSource
 	server      *httptest.Server
 }
 
 func setup(t *testing.T) *testEnv {
 	t.Log("Setup testing environment")
 	e := new(testEnv)
-	(*e).eventSource = eventsource.New()
+	(*e).eventSource = New()
 	(*e).server = httptest.NewServer((*e).eventSource)
 	return e
 }
