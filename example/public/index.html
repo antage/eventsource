@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>SSE test</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+    <script type="text/javascript">
+      $(function () {
+        var evsrc = new EventSource("/events")
+        evsrc.onmessage = function (ev) {
+          var data = ev.data
+          $("#log > ul").append("<li>" + data + "</li>")
+        }
+        evsrc.onerror = function (ev) {
+          console.log("readyState = " + ev.currentTarget.readyState)
+        }
+      })
+    </script>
+  </head>
+  <body>
+    <h1>SSE test</h1>
+    <div id="log">
+      <ul>
+      </ul>
+    </div>
+  </body>
+</html>
