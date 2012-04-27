@@ -1,8 +1,6 @@
 # eventsource
 
-Server-sent events for Go.
-
-Package eventsource provides server-sent events for net/http server.
+Package _eventsource_ provides server-sent events for net/http server.
 
 ## Usage
 
@@ -22,10 +20,10 @@ func main() {
     defer es.Close()
     http.Handle("/events", es)
     go func() {
-      id := 1
+        id := 1
         for {
             es.SendMessage("tick", "tick-event", strconv.Itoa(id))
-      id++
+            id++
             time.Sleep(2 * time.Second)
         }
     }()
