@@ -1,7 +1,7 @@
 package main
 
 import (
-	eventsource ".."
+	eventsource "../../http"
 	"log"
 	"net/http"
 	"time"

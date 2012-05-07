@@ -1,4 +1,4 @@
-package eventsource
+package http
 
 import (
 	"io"
@@ -17,15 +17,15 @@ type testEnv struct {
 func setup(t *testing.T) *testEnv {
 	t.Log("Setup testing environment")
 	e := new(testEnv)
-	(*e).eventSource = New()
-	(*e).server = httptest.NewServer((*e).eventSource)
+	e.eventSource = New()
+	e.server = httptest.NewServer(e.eventSource)
 	return e
 }
 
 func teardown(t *testing.T, e *testEnv) {
 	t.Log("Teardown testing environment")
-	(*e).eventSource.Close()
-	(*e).server.Close()
+	e.eventSource.Close()
+	e.server.Close()
 }
 
 func checkError(t *testing.T, e error) {
@@ -44,7 +44,7 @@ func read(t *testing.T, c net.Conn) []byte {
 }
 
 func startEventStream(t *testing.T, e *testEnv) (net.Conn, []byte) {
-	url := (*e).server.URL
+	url := e.server.URL
 	t.Log("open connection")
 	conn, err := net.Dial("tcp", strings.Replace(url, "http://", "", 1))
 	checkError(t, err)
@@ -90,26 +90,26 @@ func TestMessageSending(t *testing.T) {
 	defer conn.Close()
 
 	t.Log("send message 'test'")
-	(*e).eventSource.SendMessage("test", "", "")
+	e.eventSource.SendMessage("test", "", "")
 	expectResponse(t, conn, "data: test\n\n")
 
 	t.Log("send message 'test' with id '1'")
-	(*e).eventSource.SendMessage("test", "", "1")
+	e.eventSource.SendMessage("test", "", "1")
 	expectResponse(t, conn, "id: 1\ndata: test\n\n")
 
 	t.Log("send message 'test' with id '1\n1'")
-	(*e).eventSource.SendMessage("test", "", "1\n1")
+	e.eventSource.SendMessage("test", "", "1\n1")
 	expectResponse(t, conn, "id: 11\ndata: test\n\n")
 
 	t.Log("send message 'test' with event type 'notification'")
-	(*e).eventSource.SendMessage("test", "notification", "")
+	e.eventSource.SendMessage("test", "notification", "")
 	expectResponse(t, conn, "event: notification\ndata: test\n\n")
 
 	t.Log("send message 'test' with event type 'notification\n2'")
-	(*e).eventSource.SendMessage("test", "notification\n2", "")
+	e.eventSource.SendMessage("test", "notification\n2", "")
 	expectResponse(t, conn, "event: notification2\ndata: test\n\n")
 
 	t.Log("send message 'test\ntest2\ntest3\n'")
-	(*e).eventSource.SendMessage("test\ntest2\ntest3\n", "", "")
+	e.eventSource.SendMessage("test\ntest2\ntest3\n", "", "")
 	expectResponse(t, conn, "data: test\ndata: test2\ndata: test3\ndata: \n\n")
 }
