@@ -15,7 +15,7 @@ func main() {
     go func() {
         for {
             es.SendMessage("hello", "", "")
-            log.Print("Hello has been sent")
+            log.Printf("Hello has been sent (consumers: %d)", es.ConsumersCount())
             time.Sleep(2 * time.Second)
         }
     }()

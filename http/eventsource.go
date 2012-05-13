@@ -1,20 +1,13 @@
 package http
 
 import (
-	"bufio"
 	"bytes"
 	"container/list"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"strings"
 )
-
-type consumer struct {
-	conn  net.Conn
-	bufrw *bufio.ReadWriter
-}
 
 type eventMessage struct {
 	id    string
@@ -26,15 +19,23 @@ type eventSource struct {
 	sink   chan *eventMessage
 	staled chan *consumer
 	add    chan *consumer
-	close  chan interface{}
+	close  chan bool
 
 	consumers *list.List
 }
 
 // EventSource interface provides methods for sending messages and closing all connections.
 type EventSource interface {
+	// it should implement ServerHTTP method
 	http.Handler
+
+	// send message to all consumers
 	SendMessage(data, event, id string)
+
+	// consumers count
+	ConsumersCount() int
+
+	// close and clear all consumers
 	Close()
 }
 
@@ -63,13 +64,9 @@ func controlProcess(es *eventSource) {
 			message := prepareMessage(em)
 			for e := es.consumers.Front(); e != nil; e = e.Next() {
 				go func(c *consumer, message []byte) {
-					_, err1 := c.bufrw.Write(message)
-					err2 := c.bufrw.Flush()
-					if err1 != nil || err2 != nil {
-						err := c.conn.Close()
-						if err != nil {
-							log.Print("EventSource can't close connection to a consumer: ", err)
-						}
+					_, err := c.conn.Write(message)
+					if err != nil {
+						c.close <- true
 						es.staled <- c
 					}
 				}(e.Value.(*consumer), message)
@@ -81,14 +78,14 @@ func controlProcess(es *eventSource) {
 			close(es.close)
 			for e := es.consumers.Front(); e != nil; e = e.Next() {
 				c := e.Value.(*consumer)
-				c.conn.Close()
+				c.close <- true
 			}
 			es.consumers.Init()
 			return
 		case c := <-es.add:
 			es.consumers.PushBack(c)
 		case c := <-es.staled:
-			toRemoveEls := make([]*list.Element, 0)
+			toRemoveEls := make([]*list.Element, 0, 1)
 			for e := es.consumers.Front(); e != nil; e = e.Next() {
 				if e.Value.(*consumer) == c {
 					toRemoveEls = append(toRemoveEls, e)
@@ -104,9 +101,9 @@ func controlProcess(es *eventSource) {
 // New creates new EventSource instance.
 func New() EventSource {
 	es := new(eventSource)
-	es.sink = make(chan *eventMessage, 256)
-	es.close = make(chan interface{})
-	es.staled = make(chan *consumer)
+	es.sink = make(chan *eventMessage, 1)
+	es.close = make(chan bool)
+	es.staled = make(chan *consumer, 1)
 	es.add = make(chan *consumer)
 	es.consumers = list.New()
 	go controlProcess(es)
@@ -119,17 +116,14 @@ func (es *eventSource) Close() {
 
 // ServeHTTP implements http.Handler interface.
 func (es *eventSource) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	conn, bufrw, err := resp.(http.Hijacker).Hijack()
+	cons, err := newConsumer(resp)
 	if err != nil {
-		log.Print("EventSource can't create connection to a consumer: ", err)
+		log.Print("Can't create connection to a consumer: ", err)
 		return
 	}
-	bufrw.Write([]byte("HTTP/1.1 200 OK\n"))
-	bufrw.Write([]byte("Content-Type: text/event-stream\n"))
-	bufrw.Write([]byte("\n"))
-	bufrw.Flush()
-
-	es.add <- &consumer{conn, bufrw}
+	es.add <- cons
+	// wait until EventSource closes all connection
+	<-cons.close
 }
 
 func (es *eventSource) sendEventMessage(e *eventMessage) {
@@ -139,4 +133,8 @@ func (es *eventSource) sendEventMessage(e *eventMessage) {
 func (es *eventSource) SendMessage(data, event, id string) {
 	em := &eventMessage{id, event, data}
 	es.sendEventMessage(em)
+}
+
+func (es *eventSource) ConsumersCount() int {
+	return es.consumers.Len()
 }
