@@ -1,6 +1,6 @@
-# go-eventsource
+# eventsource
 
-_go-eventsource_ provides server-sent events for net/http server.
+_eventsource_ provides server-sent events for net/http server.
 
 ## Usage
 
@@ -8,7 +8,7 @@ _go-eventsource_ provides server-sent events for net/http server.
 package main
 
 import (
-    eventsource "github.com/antage/go-eventsource/http"
+    eventsource "github.com/antage/eventsource/http"
     "log"
     "net/http"
     "strconv"
