@@ -28,6 +28,30 @@ type eventSource struct {
 	consumers *list.List
 }
 
+type Settings struct {
+	// SetTimeout sets the write timeout for individual messages. The
+	// default is 2 seconds.
+	Timeout        time.Duration
+
+	// CloseOnTimeout sets whether a write timeout should close the
+	// connection or just drop the message.
+	//
+	// If the connection gets closed on a timeout, it's the client's
+	// responsibility to re-establish a connection. If the connection
+	// doesn't get closed, messages might get sent to a potentially dead
+	// client.
+	//
+	// The default is true.
+	CloseOnTimeout bool
+}
+
+func DefaultSettings() *settings {
+	return &Settings{
+		Timeout:        2 * time.Second,
+		CloseOnTimeout: true,
+	}
+}
+
 // EventSource interface provides methods for sending messages and closing all connections.
 type EventSource interface {
 	// it should implement ServerHTTP method
@@ -41,12 +65,6 @@ type EventSource interface {
 
 	// close and clear all consumers
 	Close()
-
-	// set the timeout for message sends
-	SetTimeout(n time.Duration)
-
-	// set timeout behaviour
-	CloseOnTimeout(b bool)
 }
 
 func prepareMessage(m *eventMessage) []byte {
@@ -126,36 +144,21 @@ func controlProcess(es *eventSource) {
 }
 
 // New creates new EventSource instance.
-func New() EventSource {
+func New(settings *Settings) EventSource {
+	if settings == nil {
+		settings = DefaultSettings()
+	}
+
 	es := new(eventSource)
 	es.sink = make(chan *eventMessage, 1)
 	es.close = make(chan bool)
 	es.staled = make(chan *consumer, 1)
 	es.add = make(chan *consumer)
 	es.consumers = list.New()
-	es.timeout = 2 * time.Second
-	es.closeOnTimeout = true
+	es.timeout = settings.Timeout
+	es.closeOnTimeout = settings.CloseOnTimeout
 	go controlProcess(es)
 	return es
-}
-
-// SetTimeout sets the write timeout for individual messages. The
-// default is 2 seconds.
-func (es *eventSource) SetTimeout(n time.Duration) {
-	es.timeout = n
-}
-
-// CloseOnTimeout sets whether a write timeout should close the
-// connection or just drop the message.
-//
-// If the connection gets closed on a timeout, it's the client's
-// responsibility to re-establish a connection. If the connection
-// doesn't get closed, messages might get sent to a potentially dead
-// client.
-//
-// The default is true.
-func (es *eventSource) CloseOnTimeout(b bool) {
-	es.closeOnTimeout = b
 }
 
 func (es *eventSource) Close() {
