@@ -5,8 +5,10 @@ import (
 	"container/list"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type eventMessage struct {
@@ -16,12 +18,38 @@ type eventMessage struct {
 }
 
 type eventSource struct {
-	sink   chan *eventMessage
-	staled chan *consumer
-	add    chan *consumer
-	close  chan bool
+	sink           chan *eventMessage
+	staled         chan *consumer
+	add            chan *consumer
+	close          chan bool
+	timeout        time.Duration
+	closeOnTimeout bool
 
 	consumers *list.List
+}
+
+type Settings struct {
+	// SetTimeout sets the write timeout for individual messages. The
+	// default is 2 seconds.
+	Timeout        time.Duration
+
+	// CloseOnTimeout sets whether a write timeout should close the
+	// connection or just drop the message.
+	//
+	// If the connection gets closed on a timeout, it's the client's
+	// responsibility to re-establish a connection. If the connection
+	// doesn't get closed, messages might get sent to a potentially dead
+	// client.
+	//
+	// The default is true.
+	CloseOnTimeout bool
+}
+
+func DefaultSettings() *settings {
+	return &Settings{
+		Timeout:        2 * time.Second,
+		CloseOnTimeout: true,
+	}
 }
 
 // EventSource interface provides methods for sending messages and closing all connections.
@@ -63,13 +91,30 @@ func controlProcess(es *eventSource) {
 		case em := <-es.sink:
 			message := prepareMessage(em)
 			for e := es.consumers.Front(); e != nil; e = e.Next() {
-				go func(c *consumer, message []byte) {
-					_, err := c.conn.Write(message)
-					if err != nil {
+				c := e.Value.(*consumer)
+				var closed bool
+
+				// First check if a previous message caused an error
+				select {
+				case err := <-c.err:
+					netErr, ok := err.(net.Error)
+					if !ok || !netErr.Timeout() || es.closeOnTimeout {
+						close(c.in)
 						c.close <- true
 						es.staled <- c
+						closed = true
 					}
-				}(e.Value.(*consumer), message)
+				default:
+				}
+
+				// Only send this message if there was no error that
+				// caused the consumer to get closed
+				if !closed {
+					select {
+					case c.in <- message:
+					default:
+					}
+				}
 			}
 		case <-es.close:
 			close(es.sink)
@@ -99,13 +144,19 @@ func controlProcess(es *eventSource) {
 }
 
 // New creates new EventSource instance.
-func New() EventSource {
+func New(settings *Settings) EventSource {
+	if settings == nil {
+		settings = DefaultSettings()
+	}
+
 	es := new(eventSource)
 	es.sink = make(chan *eventMessage, 1)
 	es.close = make(chan bool)
 	es.staled = make(chan *consumer, 1)
 	es.add = make(chan *consumer)
 	es.consumers = list.New()
+	es.timeout = settings.Timeout
+	es.closeOnTimeout = settings.CloseOnTimeout
 	go controlProcess(es)
 	return es
 }
@@ -116,7 +167,7 @@ func (es *eventSource) Close() {
 
 // ServeHTTP implements http.Handler interface.
 func (es *eventSource) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	cons, err := newConsumer(resp)
+	cons, err := newConsumer(resp, es)
 	if err != nil {
 		log.Print("Can't create connection to a consumer: ", err)
 		return
