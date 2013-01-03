@@ -45,7 +45,7 @@ type Settings struct {
 	CloseOnTimeout bool
 }
 
-func DefaultSettings() *settings {
+func DefaultSettings() *Settings {
 	return &Settings{
 		Timeout:        2 * time.Second,
 		CloseOnTimeout: true,
