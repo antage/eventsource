@@ -17,7 +17,7 @@ type testEnv struct {
 func setup(t *testing.T) *testEnv {
 	t.Log("Setup testing environment")
 	e := new(testEnv)
-	e.eventSource = New()
+	e.eventSource = New(nil)
 	e.server = httptest.NewServer(e.eventSource)
 	return e
 }
