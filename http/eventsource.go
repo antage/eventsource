@@ -5,7 +5,6 @@ import (
 	"container/list"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -31,7 +30,7 @@ type eventSource struct {
 type Settings struct {
 	// SetTimeout sets the write timeout for individual messages. The
 	// default is 2 seconds.
-	Timeout        time.Duration
+	Timeout time.Duration
 
 	// CloseOnTimeout sets whether a write timeout should close the
 	// connection or just drop the message.
@@ -92,24 +91,9 @@ func controlProcess(es *eventSource) {
 			message := prepareMessage(em)
 			for e := es.consumers.Front(); e != nil; e = e.Next() {
 				c := e.Value.(*consumer)
-				var closed bool
 
-				// First check if a previous message caused an error
-				select {
-				case err := <-c.err:
-					netErr, ok := err.(net.Error)
-					if !ok || !netErr.Timeout() || es.closeOnTimeout {
-						close(c.in)
-						c.close <- true
-						es.staled <- c
-						closed = true
-					}
-				default:
-				}
-
-				// Only send this message if there was no error that
-				// caused the consumer to get closed
-				if !closed {
+				// Only send this message if the consumer isn't staled
+				if !c.staled {
 					select {
 					case c.in <- message:
 					default:
@@ -123,7 +107,7 @@ func controlProcess(es *eventSource) {
 			close(es.close)
 			for e := es.consumers.Front(); e != nil; e = e.Next() {
 				c := e.Value.(*consumer)
-				c.close <- true
+				close(c.in)
 			}
 			es.consumers.Init()
 			return
@@ -139,6 +123,7 @@ func controlProcess(es *eventSource) {
 			for _, e := range toRemoveEls {
 				es.consumers.Remove(e)
 			}
+			close(c.in)
 		}
 	}
 }
@@ -173,8 +158,6 @@ func (es *eventSource) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 	es.add <- cons
-	// wait until EventSource closes all connection
-	<-cons.close
 }
 
 func (es *eventSource) sendEventMessage(e *eventMessage) {
