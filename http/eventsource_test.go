@@ -113,3 +113,35 @@ func TestMessageSending(t *testing.T) {
 	e.eventSource.SendMessage("test\ntest2\ntest3\n", "", "")
 	expectResponse(t, conn, "data: test\ndata: test2\ndata: test3\ndata: \n\n")
 }
+
+func TestStalledMessages(t *testing.T) {
+	e := setup(t)
+	defer teardown(t, e)
+
+	conn, _ := startEventStream(t, e)
+	conn2, _ := startEventStream(t, e)
+
+	t.Log("send message 'test' to both connections")
+	e.eventSource.SendMessage("test", "", "")
+	expectResponse(t, conn, "data: test\n\n")
+	expectResponse(t, conn2, "data: test\n\n")
+
+	conn.Close()
+	conn2.Close()
+
+	t.Log("send message with no open connections")
+	e.eventSource.SendMessage("test", "", "1")
+
+	connNew, _ := startEventStream(t, e)
+
+	t.Log("send a message to new connection")
+	e.eventSource.SendMessage("test", "", "1\n1")
+	expectResponse(t, connNew, "id: 11\ndata: test\n\n")
+
+	for i:=0; i < 10; i++ {
+		t.Log("sending additional message ",i)
+		e.eventSource.SendMessage("test", "", "")
+		expectResponse(t, connNew, "data: test\n\n")
+	}
+
+}

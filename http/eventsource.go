@@ -129,14 +129,14 @@ func controlProcess(es *eventSource) {
 			return
 		case c := <-es.add:
 			es.consumers.PushBack(c)
-		case c := <-es.staled:
-			toRemoveEls := make([]*list.Element, 0, 1)
-			for e := es.consumers.Front(); e != nil; e = e.Next() {
-				if e.Value.(*consumer) == c {
-					toRemoveEls = append(toRemoveEls, e)
-				}
-			}
-			for _, e := range toRemoveEls {
+		}
+	}
+}
+
+func removeStalls(es *eventSource) {
+	for c := range es.staled {
+		for e := es.consumers.Front(); e != nil; e = e.Next() {
+			if e.Value.(*consumer) == c {
 				es.consumers.Remove(e)
 			}
 		}
@@ -158,6 +158,7 @@ func New(settings *Settings) EventSource {
 	es.timeout = settings.Timeout
 	es.closeOnTimeout = settings.CloseOnTimeout
 	go controlProcess(es)
+	go removeStalls(es)
 	return es
 }
 
