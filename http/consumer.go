@@ -42,6 +42,7 @@ func newConsumer(resp http.ResponseWriter, es *eventSource) (*consumer, error) {
 					consumer.staled = true
 					consumer.conn.Close()
 					consumer.es.staled <- consumer
+          return
 				}
 			}
 		}
