@@ -1,6 +1,7 @@
 package http
 
 import (
+	"bytes"
 	"net"
 	"net/http"
 	"time"
@@ -13,7 +14,7 @@ type consumer struct {
 	staled bool
 }
 
-func newConsumer(resp http.ResponseWriter, es *eventSource) (*consumer, error) {
+func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (*consumer, error) {
 	conn, _, err := resp.(http.Hijacker).Hijack()
 	if err != nil {
 		return nil, err
@@ -26,7 +27,19 @@ func newConsumer(resp http.ResponseWriter, es *eventSource) (*consumer, error) {
 		staled: false,
 	}
 
-	_, err = conn.Write([]byte("HTTP/1.1 200 OK\nContent-Type: text/event-stream\nX-Accel-Buffering: no\n\n"))
+	headers := [][]byte{
+		[]byte("HTTP/1.1 200 OK"),
+		[]byte("Content-Type: text/event-stream"),
+	}
+
+	if es.customHeadersFunc != nil {
+		customHeaders := es.customHeadersFunc(req)
+		headers = append(headers, customHeaders...)
+	}
+
+	headersData := append(bytes.Join(headers, []byte("\n")), []byte("\n\n")...)
+
+	_, err = conn.Write(headersData)
 	if err != nil {
 		conn.Close()
 		return nil, err
@@ -42,7 +55,7 @@ func newConsumer(resp http.ResponseWriter, es *eventSource) (*consumer, error) {
 					consumer.staled = true
 					consumer.conn.Close()
 					consumer.es.staled <- consumer
-          return
+					return
 				}
 			}
 		}

@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	es := eventsource.New(nil)
+	es := eventsource.New(nil, nil)
 	defer es.Close()
 	http.Handle("/", http.FileServer(http.Dir("./public")))
 	http.Handle("/events", es)

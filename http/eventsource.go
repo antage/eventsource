@@ -17,6 +17,8 @@ type eventMessage struct {
 }
 
 type eventSource struct {
+	customHeadersFunc func(*http.Request) [][]byte
+
 	sink           chan *eventMessage
 	staled         chan *consumer
 	add            chan *consumer
@@ -129,12 +131,13 @@ func controlProcess(es *eventSource) {
 }
 
 // New creates new EventSource instance.
-func New(settings *Settings) EventSource {
+func New(settings *Settings, customHeadersFunc func(*http.Request) [][]byte) EventSource {
 	if settings == nil {
 		settings = DefaultSettings()
 	}
 
 	es := new(eventSource)
+	es.customHeadersFunc = customHeadersFunc
 	es.sink = make(chan *eventMessage, 1)
 	es.close = make(chan bool)
 	es.staled = make(chan *consumer, 1)
@@ -152,7 +155,7 @@ func (es *eventSource) Close() {
 
 // ServeHTTP implements http.Handler interface.
 func (es *eventSource) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	cons, err := newConsumer(resp, es)
+	cons, err := newConsumer(resp, req, es)
 	if err != nil {
 		log.Print("Can't create connection to a consumer: ", err)
 		return
