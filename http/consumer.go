@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -35,6 +36,7 @@ func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (
 	if es.customHeadersFunc != nil {
 		customHeaders := es.customHeadersFunc(req)
 		headers = append(headers, customHeaders...)
+		headers = append(headers, []byte(fmt.Sprintf("retry: %d\n", es.retry)))
 	}
 
 	headersData := append(bytes.Join(headers, []byte("\n")), []byte("\n\n")...)
@@ -58,8 +60,13 @@ func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (
 					return
 				}
 			}
+			err = conn.(*net.TCPConn).SetKeepAlive(true)
+			if err != nil {
+				consumer.conn.Close()
+				consumer.es.staled <- consumer
+				return
+			}
 		}
-		consumer.conn.Close()
 	}()
 
 	return consumer, nil
