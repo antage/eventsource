@@ -33,7 +33,7 @@ type eventSource struct {
 
 type Settings struct {
 	// Sets the delay between a connection loss and the client attempting to
-	// reconnect. This is given in milliseconds. The default is 3 seconds.
+	// reconnect. The default is 3 seconds.
 	Retry time.Duration
 
 	// SetTimeout sets the write timeout for individual messages. The
@@ -51,8 +51,7 @@ type Settings struct {
 	// The default is true.
 	CloseOnTimeout bool
 
-	// Sets the timeout for an idle connection. This is given in minutes. The
-	// default is 30 minutes.
+	// Sets the timeout for an idle connection. The default is 30 minutes.
 	IdleTimeout time.Duration
 }
 
@@ -60,8 +59,8 @@ func DefaultSettings() *Settings {
 	return &Settings{
 		Timeout:        2 * time.Second,
 		CloseOnTimeout: true,
-		Retry:          3000,
-		IdleTimeout:    30,
+		Retry:          3 * time.Second,
+		IdleTimeout:    30 * time.Minute,
 	}
 }
 
