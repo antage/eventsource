@@ -51,7 +51,11 @@ func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (
 		breakFromLoop := false
 		for {
 			select {
-			case message := <-consumer.in:
+			case message, open := <-consumer.in:
+				if !open {
+					consumer.conn.Close()
+					return
+				}
 				conn.SetWriteDeadline(time.Now().Add(consumer.es.timeout))
 				_, err := conn.Write(message)
 				if err != nil {
