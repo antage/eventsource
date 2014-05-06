@@ -23,8 +23,8 @@ type eventSource struct {
 	staled         chan *consumer
 	add            chan *consumer
 	close          chan bool
-	idleTimeout    int
-	retry          int
+	idleTimeout    time.Duration
+	retry          time.Duration
 	timeout        time.Duration
 	closeOnTimeout bool
 
@@ -34,7 +34,7 @@ type eventSource struct {
 type Settings struct {
 	// Sets the delay between a connection loss and the client attempting to
 	// reconnect. This is given in milliseconds. The default is 3 seconds.
-	Retry int
+	Retry time.Duration
 
 	// SetTimeout sets the write timeout for individual messages. The
 	// default is 2 seconds.
@@ -53,7 +53,7 @@ type Settings struct {
 
 	// Sets the timeout for an idle connection. This is given in minutes. The
 	// default is 30 minutes.
-	IdleTimeout int
+	IdleTimeout time.Duration
 }
 
 func DefaultSettings() *Settings {
