@@ -36,7 +36,7 @@ func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (
 	if es.customHeadersFunc != nil {
 		customHeaders := es.customHeadersFunc(req)
 		headers = append(headers, customHeaders...)
-		headers = append(headers, []byte(fmt.Sprintf("retry: %d\n", es.retry/1000000)))
+		headers = append(headers, []byte(fmt.Sprintf("retry: %d\n", es.retry/time.Millisecond)))
 	}
 
 	headersData := append(bytes.Join(headers, []byte("\n")), []byte("\n\n")...)
