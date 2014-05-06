@@ -23,6 +23,7 @@ type eventSource struct {
 	staled         chan *consumer
 	add            chan *consumer
 	close          chan bool
+	idleTimeout    int
 	retry          int
 	timeout        time.Duration
 	closeOnTimeout bool
@@ -32,7 +33,7 @@ type eventSource struct {
 
 type Settings struct {
 	// Sets the delay between a connection loss and the client attempting to
-	// reconnect. This is given in milliseconds.
+	// reconnect. This is given in milliseconds. The default is 3 seconds.
 	Retry int
 
 	// SetTimeout sets the write timeout for individual messages. The
@@ -49,6 +50,10 @@ type Settings struct {
 	//
 	// The default is true.
 	CloseOnTimeout bool
+
+	// Sets the timeout for an idle connection. This is given in minutes. The
+	// default is 30 minutes.
+	IdleTimeout int
 }
 
 func DefaultSettings() *Settings {
@@ -56,6 +61,7 @@ func DefaultSettings() *Settings {
 		Timeout:        2 * time.Second,
 		CloseOnTimeout: true,
 		Retry:          3000,
+		IdleTimeout:    30,
 	}
 }
 
@@ -151,6 +157,7 @@ func New(settings *Settings, customHeadersFunc func(*http.Request) [][]byte) Eve
 	es.consumers = list.New()
 	es.retry = settings.Retry
 	es.timeout = settings.Timeout
+	es.idleTimeout = settings.IdleTimeout
 	es.closeOnTimeout = settings.CloseOnTimeout
 	go controlProcess(es)
 	return es

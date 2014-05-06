@@ -48,20 +48,21 @@ func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (
 	}
 
 	go func() {
-		for message := range consumer.in {
-			conn.SetWriteDeadline(time.Now().Add(consumer.es.timeout))
-			_, err := conn.Write(message)
-			if err != nil {
-				netErr, ok := err.(net.Error)
-				if !ok || !netErr.Timeout() || consumer.es.closeOnTimeout {
-					consumer.staled = true
-					consumer.conn.Close()
-					consumer.es.staled <- consumer
-					return
+		for {
+			select {
+			case message := <-consumer.in:
+				conn.SetWriteDeadline(time.Now().Add(consumer.es.timeout))
+				_, err := conn.Write(message)
+				if err != nil {
+					netErr, ok := err.(net.Error)
+					if !ok || !netErr.Timeout() || consumer.es.closeOnTimeout {
+						consumer.staled = true
+						consumer.conn.Close()
+						consumer.es.staled <- consumer
+						return
+					}
 				}
-			}
-			err = conn.(*net.TCPConn).SetKeepAlive(true)
-			if err != nil {
+			case <-time.After(time.Minute * time.Duration(es.idleTimeout)):
 				consumer.conn.Close()
 				consumer.es.staled <- consumer
 				return
