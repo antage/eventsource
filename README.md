@@ -51,6 +51,8 @@ func main() {
         &eventsource.Settings{
             Timeout: 5 * time.Second,
             CloseOnTimeout: false,
+            Retry: 3 * time.Second,
+            IdleTimeout: 30 * time.Minute,
         }, nil)
     defer es.Close()
     http.Handle("/events", es)
