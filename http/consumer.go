@@ -48,6 +48,7 @@ func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (
 	}
 
 	go func() {
+		breakFromLoop := false
 		for {
 			select {
 			case message := <-consumer.in:
@@ -59,13 +60,16 @@ func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (
 						consumer.staled = true
 						consumer.conn.Close()
 						consumer.es.staled <- consumer
-						return
+						breakFromLoop = true
 					}
 				}
 			case <-time.After(time.Minute * time.Duration(es.idleTimeout)):
 				consumer.conn.Close()
 				consumer.es.staled <- consumer
-				return
+				breakFromLoop = true
+			}
+			if breakFromLoop {
+				break
 			}
 		}
 	}()
