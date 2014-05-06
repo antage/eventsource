@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -35,6 +36,7 @@ func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (
 	if es.customHeadersFunc != nil {
 		customHeaders := es.customHeadersFunc(req)
 		headers = append(headers, customHeaders...)
+		headers = append(headers, []byte(fmt.Sprintf("retry: %d\n", es.retry/time.Millisecond)))
 	}
 
 	headersData := append(bytes.Join(headers, []byte("\n")), []byte("\n\n")...)
@@ -46,20 +48,30 @@ func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (
 	}
 
 	go func() {
-		for message := range consumer.in {
-			conn.SetWriteDeadline(time.Now().Add(consumer.es.timeout))
-			_, err := conn.Write(message)
-			if err != nil {
-				netErr, ok := err.(net.Error)
-				if !ok || !netErr.Timeout() || consumer.es.closeOnTimeout {
-					consumer.staled = true
+		for {
+			select {
+			case message, open := <-consumer.in:
+				if !open {
 					consumer.conn.Close()
-					consumer.es.staled <- consumer
 					return
 				}
+				conn.SetWriteDeadline(time.Now().Add(consumer.es.timeout))
+				_, err := conn.Write(message)
+				if err != nil {
+					netErr, ok := err.(net.Error)
+					if !ok || !netErr.Timeout() || consumer.es.closeOnTimeout {
+						consumer.staled = true
+						consumer.conn.Close()
+						consumer.es.staled <- consumer
+						return
+					}
+				}
+			case <-time.After(es.idleTimeout):
+				consumer.conn.Close()
+				consumer.es.staled <- consumer
+				return
 			}
 		}
-		consumer.conn.Close()
 	}()
 
 	return consumer, nil
