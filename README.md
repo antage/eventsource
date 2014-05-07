@@ -10,7 +10,7 @@ _eventsource_ provides server-sent events for net/http server.
 package main
 
 import (
-    eventsource "github.com/antage/eventsource/http"
+    "github.com/antage/eventsource"
     "log"
     "net/http"
     "strconv"
@@ -39,7 +39,7 @@ func main() {
 package main
 
 import (
-    eventsource "github.com/antage/eventsource/http"
+    "github.com/antage/eventsource"
     "log"
     "net/http"
     "strconv"
@@ -74,7 +74,7 @@ func main() {
 package main
 
 import (
-    eventsource "github.com/antage/eventsource/http"
+    "github.com/antage/eventsource"
     "log"
     "net/http"
     "strconv"
