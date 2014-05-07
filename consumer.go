@@ -27,17 +27,28 @@ func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (
 		staled: false,
 	}
 
-	conn.Write([]byte("HTTP/1.1 200 OK\nContent-Type: text/event-stream\n"))
+	_, err = conn.Write([]byte("HTTP/1.1 200 OK\nContent-Type: text/event-stream\n"))
+	if err != nil {
+		conn.Close()
+		return nil, err
+	}
 
 	if es.customHeadersFunc != nil {
 		for _, header := range es.customHeadersFunc(req) {
-			conn.Write(header)
-			conn.Write([]byte("\n"))
+			_, err = conn.Write(header)
+			if err != nil {
+				conn.Close()
+				return nil, err
+			}
+			_, err = conn.Write([]byte("\n"))
+			if err != nil {
+				conn.Close()
+				return nil, err
+			}
 		}
 	}
 
 	_, err = conn.Write([]byte(fmt.Sprintf("retry: %d\n\n", es.retry/time.Millisecond)))
-
 	if err != nil {
 		conn.Close()
 		return nil, err
