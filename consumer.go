@@ -34,14 +34,12 @@ func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (
 	}
 
 	if es.customHeadersFunc != nil {
-		customHeaders := es.customHeadersFunc(req)
-		headers = append(headers, customHeaders...)
-		headers = append(headers, []byte(fmt.Sprintf("retry: %d\n", es.retry/time.Millisecond)))
+		headers = append(headers, es.customHeadersFunc(req)...)
 	}
 
-	headersData := append(bytes.Join(headers, []byte("\n")), []byte("\n\n")...)
+	headers = append(headers, []byte(fmt.Sprintf("retry: %d\n\n", es.retry/time.Millisecond)))
 
-	_, err = conn.Write(headersData)
+	_, err = conn.Write(bytes.Join(headers, []byte("\n")))
 	if err != nil {
 		conn.Close()
 		return nil, err
