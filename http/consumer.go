@@ -48,6 +48,8 @@ func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (
 	}
 
 	go func() {
+		idleTimer := time.NewTimer(es.idleTimeout)
+		defer idleTimer.Stop()
 		for {
 			select {
 			case message, open := <-consumer.in:
@@ -66,7 +68,8 @@ func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (
 						return
 					}
 				}
-			case <-time.After(es.idleTimeout):
+				idleTimer.Reset(es.idleTimeout)
+			case <-idleTimer.C:
 				consumer.conn.Close()
 				consumer.es.staled <- consumer
 				return
