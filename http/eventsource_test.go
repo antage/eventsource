@@ -36,6 +36,17 @@ func setupWithHeaders(t *testing.T, headers [][]byte) *testEnv {
 	return e
 }
 
+func setupWithCustomSettings(t *testing.T, settings *Settings) *testEnv {
+	t.Log("Setup testing environment")
+	e := new(testEnv)
+	e.eventSource = New(
+		settings,
+		nil,
+	)
+	e.server = httptest.NewServer(e.eventSource)
+	return e
+}
+
 func teardown(t *testing.T, e *testEnv) {
 	t.Log("Teardown testing environment")
 	e.eventSource.Close()
@@ -183,5 +194,26 @@ func TestStalledMessages(t *testing.T) {
 		t.Log("sending additional message ", i)
 		e.eventSource.SendMessage("test", "", "")
 		expectResponse(t, connNew, "data: test\n\n")
+	}
+}
+
+func TestIdleTimeout(t *testing.T) {
+	settings := DefaultSettings()
+	settings.IdleTimeout = 500 * time.Millisecond
+	e := setupWithCustomSettings(t, settings)
+	defer teardown(t, e)
+
+	startEventStream(t, e)
+
+	ccount := e.eventSource.ConsumersCount()
+	if ccount != 1 {
+		t.Fatalf("Expected 1 customer but got %d", ccount)
+	}
+
+	<-time.After(1000 * time.Millisecond)
+
+	ccount = e.eventSource.ConsumersCount()
+	if ccount != 0 {
+		t.Fatalf("Expected 0 customer but got %d", ccount)
 	}
 }
