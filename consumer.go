@@ -27,15 +27,7 @@ func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (
 		staled: false,
 	}
 
-	headers := [][]byte{
-		[]byte("HTTP/1.1 200 OK"),
-		[]byte("Content-Type: text/event-stream"),
-	}
-
-	for _, header := range headers {
-		conn.Write(header)
-		conn.Write([]byte("\n"))
-	}
+	conn.Write([]byte("HTTP/1.1 200 OK\nContent-Type: text/event-stream\n"))
 
 	if es.customHeadersFunc != nil {
 		for _, header := range es.customHeadersFunc(req) {
