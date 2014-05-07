@@ -32,15 +32,14 @@ func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (
 		[]byte("Content-Type: text/event-stream"),
 	}
 
-	for i := 0; i < len(headers); i++ {
-		conn.Write(headers[i])
+	for _, header := range headers {
+		conn.Write(header)
 		conn.Write([]byte("\n"))
 	}
 
 	if es.customHeadersFunc != nil {
-		customHeaders := es.customHeadersFunc(req)
-		for i := 0; i < len(customHeaders); i++ {
-			conn.Write(customHeaders[i])
+		for _, header := range es.customHeadersFunc(req) {
+			conn.Write(header)
 			conn.Write([]byte("\n"))
 		}
 	}
