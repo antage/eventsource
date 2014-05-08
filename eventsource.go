@@ -17,7 +17,7 @@ type eventMessage struct {
 }
 
 type retryMessage struct {
-	retry []byte
+	retry time.Duration
 }
 
 type eventSource struct {
@@ -192,11 +192,11 @@ func (es *eventSource) SendEventMessage(data, event, id string) {
 }
 
 func (m *retryMessage) prepareMessage() []byte {
-	return m.retry
+    return []byte(fmt.Sprintf("retry: %d\n\n", m.retry/time.Millisecond))
 }
 
 func (es *eventSource) SendRetryMessage(t time.Duration) {
-	es.sendMessage(&retryMessage{[]byte(fmt.Sprintf("retry: %d\n\n", t/time.Millisecond))})
+	es.sendMessage(&retryMessage{t})
 }
 
 func (es *eventSource) ConsumersCount() int {
