@@ -16,10 +16,14 @@ type eventMessage struct {
 	data  string
 }
 
+type retryMessage struct {
+	retry []byte
+}
+
 type eventSource struct {
 	customHeadersFunc func(*http.Request) [][]byte
 
-	sink           chan *eventMessage
+	sink           chan message
 	staled         chan *consumer
 	add            chan *consumer
 	close          chan bool
@@ -32,10 +36,6 @@ type eventSource struct {
 }
 
 type Settings struct {
-	// Sets the delay between a connection loss and the client attempting to
-	// reconnect. The default is 3 seconds.
-	Retry time.Duration
-
 	// SetTimeout sets the write timeout for individual messages. The
 	// default is 2 seconds.
 	Timeout time.Duration
@@ -59,7 +59,6 @@ func DefaultSettings() *Settings {
 	return &Settings{
 		Timeout:        2 * time.Second,
 		CloseOnTimeout: true,
-		Retry:          3 * time.Second,
 		IdleTimeout:    30 * time.Minute,
 	}
 }
@@ -70,7 +69,10 @@ type EventSource interface {
 	http.Handler
 
 	// send message to all consumers
-	SendMessage(data, event, id string)
+	SendEventMessage(data, event, id string)
+
+	// send retry message to all consumers
+	SendRetryMessage(duration time.Duration)
 
 	// consumers count
 	ConsumersCount() int
@@ -79,7 +81,12 @@ type EventSource interface {
 	Close()
 }
 
-func prepareMessage(m *eventMessage) []byte {
+type message interface {
+	// The message to be sent to clients
+	prepareMessage() []byte
+}
+
+func (m *eventMessage) prepareMessage() []byte {
 	var data bytes.Buffer
 	if len(m.id) > 0 {
 		data.WriteString(fmt.Sprintf("id: %s\n", strings.Replace(m.id, "\n", "", -1)))
@@ -101,7 +108,7 @@ func controlProcess(es *eventSource) {
 	for {
 		select {
 		case em := <-es.sink:
-			message := prepareMessage(em)
+			message := em.prepareMessage()
 			for e := es.consumers.Front(); e != nil; e = e.Next() {
 				c := e.Value.(*consumer)
 
@@ -149,12 +156,11 @@ func New(settings *Settings, customHeadersFunc func(*http.Request) [][]byte) Eve
 
 	es := new(eventSource)
 	es.customHeadersFunc = customHeadersFunc
-	es.sink = make(chan *eventMessage, 1)
+	es.sink = make(chan message, 1)
 	es.close = make(chan bool)
 	es.staled = make(chan *consumer, 1)
 	es.add = make(chan *consumer)
 	es.consumers = list.New()
-	es.retry = settings.Retry
 	es.timeout = settings.Timeout
 	es.idleTimeout = settings.IdleTimeout
 	es.closeOnTimeout = settings.CloseOnTimeout
@@ -176,13 +182,21 @@ func (es *eventSource) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	es.add <- cons
 }
 
-func (es *eventSource) sendEventMessage(e *eventMessage) {
-	es.sink <- e
+func (es *eventSource) sendMessage(m message) {
+	es.sink <- m
 }
 
-func (es *eventSource) SendMessage(data, event, id string) {
+func (es *eventSource) SendEventMessage(data, event, id string) {
 	em := &eventMessage{id, event, data}
-	es.sendEventMessage(em)
+	es.sendMessage(em)
+}
+
+func (m *retryMessage) prepareMessage() []byte {
+	return m.retry
+}
+
+func (es *eventSource) SendRetryMessage(t time.Duration) {
+	es.sendMessage(&retryMessage{[]byte(fmt.Sprintf("retry: %d\n\n", t/time.Millisecond))})
 }
 
 func (es *eventSource) ConsumersCount() int {

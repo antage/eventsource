@@ -1,7 +1,6 @@
 package http
 
 import (
-	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -48,7 +47,7 @@ func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (
 		}
 	}
 
-	_, err = conn.Write([]byte(fmt.Sprintf("retry: %d\n\n", es.retry/time.Millisecond)))
+	_, err = conn.Write([]byte("\n"))
 	if err != nil {
 		conn.Close()
 		return nil, err

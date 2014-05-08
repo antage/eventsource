@@ -134,7 +134,19 @@ func TestConnectionWithCustomHeaders(t *testing.T) {
 	}
 }
 
-func TestMessageSending(t *testing.T) {
+func TestRetryMessageSending(t *testing.T) {
+	e := setup(t)
+	defer teardown(t, e)
+
+	conn, _ := startEventStream(t, e)
+	defer conn.Close()
+
+	t.Log("send retry message")
+	e.eventSource.SendRetryMessage(3 * time.Second)
+	expectResponse(t, conn, "retry: 3000\n\n")
+}
+
+func TestEventMessageSending(t *testing.T) {
 	e := setup(t)
 	defer teardown(t, e)
 
@@ -142,27 +154,27 @@ func TestMessageSending(t *testing.T) {
 	defer conn.Close()
 
 	t.Log("send message 'test'")
-	e.eventSource.SendMessage("test", "", "")
+	e.eventSource.SendEventMessage("test", "", "")
 	expectResponse(t, conn, "data: test\n\n")
 
 	t.Log("send message 'test' with id '1'")
-	e.eventSource.SendMessage("test", "", "1")
+	e.eventSource.SendEventMessage("test", "", "1")
 	expectResponse(t, conn, "id: 1\ndata: test\n\n")
 
 	t.Log("send message 'test' with id '1\n1'")
-	e.eventSource.SendMessage("test", "", "1\n1")
+	e.eventSource.SendEventMessage("test", "", "1\n1")
 	expectResponse(t, conn, "id: 11\ndata: test\n\n")
 
 	t.Log("send message 'test' with event type 'notification'")
-	e.eventSource.SendMessage("test", "notification", "")
+	e.eventSource.SendEventMessage("test", "notification", "")
 	expectResponse(t, conn, "event: notification\ndata: test\n\n")
 
 	t.Log("send message 'test' with event type 'notification\n2'")
-	e.eventSource.SendMessage("test", "notification\n2", "")
+	e.eventSource.SendEventMessage("test", "notification\n2", "")
 	expectResponse(t, conn, "event: notification2\ndata: test\n\n")
 
 	t.Log("send message 'test\ntest2\ntest3\n'")
-	e.eventSource.SendMessage("test\ntest2\ntest3\n", "", "")
+	e.eventSource.SendEventMessage("test\ntest2\ntest3\n", "", "")
 	expectResponse(t, conn, "data: test\ndata: test2\ndata: test3\ndata: \n\n")
 }
 
@@ -174,7 +186,7 @@ func TestStalledMessages(t *testing.T) {
 	conn2, _ := startEventStream(t, e)
 
 	t.Log("send message 'test' to both connections")
-	e.eventSource.SendMessage("test", "", "")
+	e.eventSource.SendEventMessage("test", "", "")
 	expectResponse(t, conn, "data: test\n\n")
 	expectResponse(t, conn2, "data: test\n\n")
 
@@ -182,17 +194,17 @@ func TestStalledMessages(t *testing.T) {
 	conn2.Close()
 
 	t.Log("send message with no open connections")
-	e.eventSource.SendMessage("test", "", "1")
+	e.eventSource.SendEventMessage("test", "", "1")
 
 	connNew, _ := startEventStream(t, e)
 
 	t.Log("send a message to new connection")
-	e.eventSource.SendMessage("test", "", "1\n1")
+	e.eventSource.SendEventMessage("test", "", "1\n1")
 	expectResponse(t, connNew, "id: 11\ndata: test\n\n")
 
 	for i := 0; i < 10; i++ {
 		t.Log("sending additional message ", i)
-		e.eventSource.SendMessage("test", "", "")
+		e.eventSource.SendEventMessage("test", "", "")
 		expectResponse(t, connNew, "data: test\n\n")
 	}
 }
