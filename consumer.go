@@ -1,8 +1,6 @@
 package http
 
 import (
-	"bytes"
-	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -28,20 +26,28 @@ func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (
 		staled: false,
 	}
 
-	headers := [][]byte{
-		[]byte("HTTP/1.1 200 OK"),
-		[]byte("Content-Type: text/event-stream"),
+	_, err = conn.Write([]byte("HTTP/1.1 200 OK\nContent-Type: text/event-stream\n"))
+	if err != nil {
+		conn.Close()
+		return nil, err
 	}
 
 	if es.customHeadersFunc != nil {
-		customHeaders := es.customHeadersFunc(req)
-		headers = append(headers, customHeaders...)
-		headers = append(headers, []byte(fmt.Sprintf("retry: %d\n", es.retry/time.Millisecond)))
+		for _, header := range es.customHeadersFunc(req) {
+			_, err = conn.Write(header)
+			if err != nil {
+				conn.Close()
+				return nil, err
+			}
+			_, err = conn.Write([]byte("\n"))
+			if err != nil {
+				conn.Close()
+				return nil, err
+			}
+		}
 	}
 
-	headersData := append(bytes.Join(headers, []byte("\n")), []byte("\n\n")...)
-
-	_, err = conn.Write(headersData)
+	_, err = conn.Write([]byte("\n"))
 	if err != nil {
 		conn.Close()
 		return nil, err
