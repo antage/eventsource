@@ -111,7 +111,7 @@ func controlProcess(es *eventSource) {
 		select {
 		case em := <-es.sink:
 			message := em.prepareMessage()
-			func () {
+			func() {
 				es.consumersLock.RLock()
 				defer es.consumersLock.RUnlock()
 
@@ -133,7 +133,7 @@ func controlProcess(es *eventSource) {
 			close(es.staled)
 			close(es.close)
 
-			func () {
+			func() {
 				es.consumersLock.RLock()
 				defer es.consumersLock.RUnlock()
 
@@ -149,7 +149,7 @@ func controlProcess(es *eventSource) {
 			es.consumers.Init()
 			return
 		case c := <-es.add:
-			func () {
+			func() {
 				es.consumersLock.Lock()
 				defer es.consumersLock.Unlock()
 
@@ -157,7 +157,7 @@ func controlProcess(es *eventSource) {
 			}()
 		case c := <-es.staled:
 			toRemoveEls := make([]*list.Element, 0, 1)
-			func () {
+			func() {
 				es.consumersLock.RLock()
 				defer es.consumersLock.RUnlock()
 
@@ -167,7 +167,7 @@ func controlProcess(es *eventSource) {
 					}
 				}
 			}()
-			func () {
+			func() {
 				es.consumersLock.Lock()
 				defer es.consumersLock.Unlock()
 
@@ -224,7 +224,7 @@ func (es *eventSource) SendEventMessage(data, event, id string) {
 }
 
 func (m *retryMessage) prepareMessage() []byte {
-    return []byte(fmt.Sprintf("retry: %d\n\n", m.retry/time.Millisecond))
+	return []byte(fmt.Sprintf("retry: %d\n\n", m.retry/time.Millisecond))
 }
 
 func (es *eventSource) SendRetryMessage(t time.Duration) {
