@@ -24,7 +24,7 @@ func main() {
     go func() {
         id := 1
         for {
-            es.SendMessage("tick", "tick-event", strconv.Itoa(id))
+            es.SendEventMessage("tick", "tick-event", strconv.Itoa(id))
             id++
             time.Sleep(2 * time.Second)
         }
@@ -59,7 +59,7 @@ func main() {
     go func() {
         id := 1
         for {
-            es.SendMessage("tick", "tick-event", strconv.Itoa(id))
+            es.SendEventMessage("tick", "tick-event", strconv.Itoa(id))
             id++
             time.Sleep(2 * time.Second)
         }
@@ -96,7 +96,7 @@ func main() {
     go func() {
         id := 1
         for {
-            es.SendMessage("tick", "tick-event", strconv.Itoa(id))
+            es.SendEventMessage("tick", "tick-event", strconv.Itoa(id))
             id++
             time.Sleep(2 * time.Second)
         }

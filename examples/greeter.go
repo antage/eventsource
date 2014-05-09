@@ -14,7 +14,7 @@ func main() {
 	http.Handle("/events", es)
 	go func() {
 		for {
-			es.SendMessage("hello", "", "")
+			es.SendEventMessage("hello", "", "")
 			log.Printf("Hello has been sent (consumers: %d)", es.ConsumersCount())
 			time.Sleep(2 * time.Second)
 		}
