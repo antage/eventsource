@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -32,7 +33,8 @@ type eventSource struct {
 	timeout        time.Duration
 	closeOnTimeout bool
 
-	consumers *list.List
+	consumersLock sync.RWMutex
+	consumers     *list.List
 }
 
 type Settings struct {
@@ -109,40 +111,70 @@ func controlProcess(es *eventSource) {
 		select {
 		case em := <-es.sink:
 			message := em.prepareMessage()
-			for e := es.consumers.Front(); e != nil; e = e.Next() {
-				c := e.Value.(*consumer)
+			func () {
+				es.consumersLock.RLock()
+				defer es.consumersLock.RUnlock()
 
-				// Only send this message if the consumer isn't staled
-				if !c.staled {
-					select {
-					case c.in <- message:
-					default:
+				for e := es.consumers.Front(); e != nil; e = e.Next() {
+					c := e.Value.(*consumer)
+
+					// Only send this message if the consumer isn't staled
+					if !c.staled {
+						select {
+						case c.in <- message:
+						default:
+						}
 					}
 				}
-			}
+			}()
 		case <-es.close:
 			close(es.sink)
 			close(es.add)
 			close(es.staled)
 			close(es.close)
-			for e := es.consumers.Front(); e != nil; e = e.Next() {
-				c := e.Value.(*consumer)
-				close(c.in)
-			}
+
+			func () {
+				es.consumersLock.RLock()
+				defer es.consumersLock.RUnlock()
+
+				for e := es.consumers.Front(); e != nil; e = e.Next() {
+					c := e.Value.(*consumer)
+					close(c.in)
+				}
+			}()
+
+			es.consumersLock.Lock()
+			defer es.consumersLock.Unlock()
+
 			es.consumers.Init()
 			return
 		case c := <-es.add:
-			es.consumers.PushBack(c)
+			func () {
+				es.consumersLock.Lock()
+				defer es.consumersLock.Unlock()
+
+				es.consumers.PushBack(c)
+			}()
 		case c := <-es.staled:
 			toRemoveEls := make([]*list.Element, 0, 1)
-			for e := es.consumers.Front(); e != nil; e = e.Next() {
-				if e.Value.(*consumer) == c {
-					toRemoveEls = append(toRemoveEls, e)
+			func () {
+				es.consumersLock.RLock()
+				defer es.consumersLock.RUnlock()
+
+				for e := es.consumers.Front(); e != nil; e = e.Next() {
+					if e.Value.(*consumer) == c {
+						toRemoveEls = append(toRemoveEls, e)
+					}
 				}
-			}
-			for _, e := range toRemoveEls {
-				es.consumers.Remove(e)
-			}
+			}()
+			func () {
+				es.consumersLock.Lock()
+				defer es.consumersLock.Unlock()
+
+				for _, e := range toRemoveEls {
+					es.consumers.Remove(e)
+				}
+			}()
 			close(c.in)
 		}
 	}
@@ -200,5 +232,8 @@ func (es *eventSource) SendRetryMessage(t time.Duration) {
 }
 
 func (es *eventSource) ConsumersCount() int {
+	es.consumersLock.RLock()
+	defer es.consumersLock.RUnlock()
+
 	return es.consumers.Len()
 }
