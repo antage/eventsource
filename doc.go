@@ -28,4 +28,4 @@ Example:
             log.Fatal(http.ListenAndServe(":8080", nil))
         }
 */
-package http
+package eventsource
