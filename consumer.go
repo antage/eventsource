@@ -26,7 +26,7 @@ func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (
 		staled: false,
 	}
 
-	_, err = conn.Write([]byte("HTTP/1.1 200 OK\nContent-Type: text/event-stream\n"))
+	_, err = conn.Write([]byte("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n"))
 	if err != nil {
 		conn.Close()
 		return nil, err
@@ -39,7 +39,7 @@ func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (
 				conn.Close()
 				return nil, err
 			}
-			_, err = conn.Write([]byte("\n"))
+			_, err = conn.Write([]byte("\r\n"))
 			if err != nil {
 				conn.Close()
 				return nil, err
@@ -47,7 +47,7 @@ func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (
 		}
 	}
 
-	_, err = conn.Write([]byte("\n"))
+	_, err = conn.Write([]byte("\r\n"))
 	if err != nil {
 		conn.Close()
 		return nil, err
