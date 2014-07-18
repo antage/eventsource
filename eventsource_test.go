@@ -98,11 +98,11 @@ func TestConnection(t *testing.T) {
 	conn, resp := startEventStream(t, e)
 	defer conn.Close()
 
-	if !strings.Contains(string(resp), "HTTP/1.1 200 OK\n") {
+	if !strings.Contains(string(resp), "HTTP/1.1 200 OK\r\n") {
 		t.Error("the response has no HTTP status")
 	}
 
-	if !strings.Contains(string(resp), "Content-Type: text/event-stream\n") {
+	if !strings.Contains(string(resp), "Content-Type: text/event-stream\r\n") {
 		t.Error("the response has no Content-Type header with value 'text/event-stream'")
 	}
 }
@@ -117,19 +117,19 @@ func TestConnectionWithCustomHeaders(t *testing.T) {
 	conn, resp := startEventStream(t, e)
 	defer conn.Close()
 
-	if !strings.Contains(string(resp), "HTTP/1.1 200 OK\n") {
+	if !strings.Contains(string(resp), "HTTP/1.1 200 OK\r\n") {
 		t.Error("the response has no HTTP status")
 	}
 
-	if !strings.Contains(string(resp), "Content-Type: text/event-stream\n") {
+	if !strings.Contains(string(resp), "Content-Type: text/event-stream\r\n") {
 		t.Error("the response has no Content-Type header with value 'text/event-stream'")
 	}
 
-	if !strings.Contains(string(resp), "X-Accel-Buffering: no\n") {
+	if !strings.Contains(string(resp), "X-Accel-Buffering: no\r\n") {
 		t.Error("the response has no X-Accel-Buffering header with value 'no'")
 	}
 
-	if !strings.Contains(string(resp), "Access-Control-Allow-Origin: *\n") {
+	if !strings.Contains(string(resp), "Access-Control-Allow-Origin: *\r\n") {
 		t.Error("the response has no Access-Control-Allow-Origin header with value '*'")
 	}
 }
