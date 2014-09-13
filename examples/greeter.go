@@ -1,7 +1,7 @@
 package main
 
 import (
-	"gopkg.in/antage/eventsource.v0"
+	eventsource "../."
 	"log"
 	"net/http"
 	"time"
