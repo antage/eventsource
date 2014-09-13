@@ -1,6 +1,6 @@
 # eventsource
 
-[![Build Status](https://travis-ci.org/antage/eventsource.svg?branch=v1)](https://travis-ci.org/antage/eventsource)
+[![Build Status](https://travis-ci.org/antage/eventsource.svg?branch=master)](https://travis-ci.org/antage/eventsource)
 
 _eventsource_ provides server-sent events for net/http server.
 
