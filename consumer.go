@@ -1,16 +1,42 @@
 package eventsource
 
 import (
+	"compress/gzip"
+	"io"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 )
 
 type consumer struct {
-	conn   net.Conn
+	conn   io.WriteCloser
 	es     *eventSource
 	in     chan []byte
 	staled bool
+}
+
+type gzipConn struct {
+	net.Conn
+	*gzip.Writer
+}
+
+func (gc gzipConn) Write(b []byte) (int, error) {
+	n, err := gc.Writer.Write(b)
+	if err != nil {
+		return n, err
+	}
+
+	return n, gc.Writer.Flush()
+}
+
+func (gc gzipConn) Close() error {
+	err := gc.Writer.Close()
+	if err != nil {
+		return err
+	}
+
+	return gc.Conn.Close()
 }
 
 func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (*consumer, error) {
@@ -30,6 +56,22 @@ func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (
 	if err != nil {
 		conn.Close()
 		return nil, err
+	}
+
+	_, err = conn.Write([]byte("Vary: Accept-Encoding\r\n"))
+	if err != nil {
+		conn.Close()
+		return nil, err
+	}
+
+	if es.gzip && (req == nil || strings.Contains(req.Header.Get("Accept-Encoding"), "gzip")) {
+		_, err = conn.Write([]byte("Content-Encoding: gzip\r\n"))
+		if err != nil {
+			conn.Close()
+			return nil, err
+		}
+
+		consumer.conn = gzipConn{conn, gzip.NewWriter(conn)}
 	}
 
 	if es.customHeadersFunc != nil {
@@ -64,7 +106,7 @@ func newConsumer(resp http.ResponseWriter, req *http.Request, es *eventSource) (
 					return
 				}
 				conn.SetWriteDeadline(time.Now().Add(consumer.es.timeout))
-				_, err := conn.Write(message)
+				_, err := consumer.conn.Write(message)
 				if err != nil {
 					netErr, ok := err.(net.Error)
 					if !ok || !netErr.Timeout() || consumer.es.closeOnTimeout {
