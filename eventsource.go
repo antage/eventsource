@@ -32,6 +32,7 @@ type eventSource struct {
 	retry          time.Duration
 	timeout        time.Duration
 	closeOnTimeout bool
+	gzip           bool
 
 	consumersLock sync.RWMutex
 	consumers     *list.List
@@ -55,6 +56,12 @@ type Settings struct {
 
 	// Sets the timeout for an idle connection. The default is 30 minutes.
 	IdleTimeout time.Duration
+
+	// Gzip sets whether to use gzip Content-Encoding for clients which
+	// support it.
+	//
+	// The default is true.
+	Gzip bool
 }
 
 func DefaultSettings() *Settings {
@@ -62,6 +69,7 @@ func DefaultSettings() *Settings {
 		Timeout:        2 * time.Second,
 		CloseOnTimeout: true,
 		IdleTimeout:    30 * time.Minute,
+		Gzip:           true,
 	}
 }
 
@@ -196,6 +204,7 @@ func New(settings *Settings, customHeadersFunc func(*http.Request) [][]byte) Eve
 	es.timeout = settings.Timeout
 	es.idleTimeout = settings.IdleTimeout
 	es.closeOnTimeout = settings.CloseOnTimeout
+	es.gzip = settings.Gzip
 	go controlProcess(es)
 	return es
 }
