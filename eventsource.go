@@ -60,7 +60,7 @@ type Settings struct {
 	// Gzip sets whether to use gzip Content-Encoding for clients which
 	// support it.
 	//
-	// The default is true.
+	// The default is false.
 	Gzip bool
 }
 
@@ -69,7 +69,7 @@ func DefaultSettings() *Settings {
 		Timeout:        2 * time.Second,
 		CloseOnTimeout: true,
 		IdleTimeout:    30 * time.Minute,
-		Gzip:           true,
+		Gzip:           false,
 	}
 }
 
