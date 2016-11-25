@@ -136,25 +136,6 @@ func controlProcess(es *eventSource) {
 				}
 			}()
 		case <-es.close:
-			close(es.sink)
-			close(es.add)
-			close(es.staled)
-			close(es.close)
-
-			func() {
-				es.consumersLock.RLock()
-				defer es.consumersLock.RUnlock()
-
-				for e := es.consumers.Front(); e != nil; e = e.Next() {
-					c := e.Value.(*consumer)
-					close(c.in)
-				}
-			}()
-
-			es.consumersLock.Lock()
-			defer es.consumersLock.Unlock()
-
-			es.consumers.Init()
 			return
 		case c := <-es.add:
 			func() {
@@ -183,7 +164,6 @@ func controlProcess(es *eventSource) {
 					es.consumers.Remove(e)
 				}
 			}()
-			close(c.in)
 		}
 	}
 }
